@@ -91,12 +91,12 @@ def load_ams_index():
 # Load the Excel file containing the documents
 @st.cache_data
 def load_cat_documents():
-    df = pd.read_excel("/content/drive/MyDrive/faiss/amazon tree for indexing.xlsx")
+    df = pd.read_excel("amazon tree for indexing.xlsx")
     return list(df['tree'])
 
 @st.cache_data
 def load_ams_documents():
-    df = pd.read_csv("/content/drive/MyDrive/faiss/ams keywords.csv")
+    df = pd.read_csv("ams keywords.csv")
     return list(df['input_search_term'])
 
 # Search function using the loaded index and documents
