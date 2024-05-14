@@ -82,7 +82,7 @@ def uae_model():
 # Function to load the FAISS index from disk
 @st.cache_data
 def load_cat_index():
-    return faiss.read_index("/content/drive/MyDrive/faiss/category_faiss_index.index")
+    return faiss.read_index("my_faiss_index.index")
 
 @st.cache_data
 def load_ams_index():
