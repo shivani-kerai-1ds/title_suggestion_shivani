@@ -1,5 +1,9 @@
 
 
+
+
+
+
 import streamlit as st
 import faiss
 import numpy as np
@@ -12,9 +16,12 @@ import pickle
 
 import requests
 
-API_URL = "https://api-inference.huggingface.co/models/shivanikerai/TinyLlama-1.1B-Chat-v1.0-sku-title-ner-generation-reversed-v1.0"
+API_URL_ner = "https://api-inference.huggingface.co/models/shivanikerai/TinyLlama-1.1B-Chat-v1.0-sku-title-ner-generation-reversed-v1.0"
+
 headers = {"Authorization": "Bearer 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"}
-@st.cache_data
+
+
+
 def ner_title(title):
     # Define the roles and markers
     B_SYS, E_SYS = "<<SYS>>", "<</SYS>>"
@@ -22,7 +29,7 @@ def ner_title(title):
     B_in, E_in = "[Title]", "[/Title]"
     # Format your prompt template
     prompt = f"""{B_INST} {B_SYS} You are a helpful assistant that provides accurate and concise responses. {E_SYS}\nExtract named entities from the given product title. Provide the output in JSON format.\n{B_in} {title.strip()} {E_in}\n{E_INST}\n\n### NER Response:\n{{"{title.split()[0].lower()}"""
-    output = query({
+    output = query(API_URL_ner,{
     "inputs": prompt,
     "parameters": {"return_full_text":False,},
     "options":{"wait_for_model": True}
@@ -32,7 +39,7 @@ def ner_title(title):
     return ('{"'+title.split()[0].lower()+(output[0]['generated_text']))#.split("### NER Response:\n")[-1]))
 
 
-def query(payload):
+def query(API_URL,payload):
     response = requests.post(API_URL, headers=headers, json=payload)
     return response.json()
 
@@ -61,52 +68,60 @@ def convert_to_dictionary(input_string):
         #print(f"\nAn error occurred: {e}\n{input_string}")
         return({})
 
-pkl_file_path = "save_model.pkl"
-with open(pkl_file_path, "rb") as f:
-  uae = pickle.load(f)
+@st.cache_data
+def uae_model():
+    from angle_emb import AnglE
+
+    uae = AnglE.from_pretrained('WhereIsAI/UAE-Large-V1', pooling_strategy='cls')#.cuda()
+    return uae
+
+# pkl_file_path = "save_model.pkl"
+# with open(pkl_file_path, "rb") as f:
+#   uae = pickle.load(f)
 
 # Function to load the FAISS index from disk
-def load_index(index_path):
-    return faiss.read_index(index_path)
+@st.cache_data
+def load_cat_index():
+    return faiss.read_index("/content/drive/MyDrive/faiss/category_faiss_index.index")
+
+@st.cache_data
+def load_ams_index():
+    return faiss.read_index("/content/drive/MyDrive/faiss/ams_faiss_index.index")
 
 # Load the Excel file containing the documents
-def load_documents(file_path):
-    df = pd.read_excel(file_path)
+@st.cache_data
+def load_cat_documents():
+    df = pd.read_excel("/content/drive/MyDrive/faiss/amazon tree for indexing.xlsx")
     return list(df['tree'])
 
+@st.cache_data
+def load_ams_documents():
+    df = pd.read_csv("/content/drive/MyDrive/faiss/ams keywords.csv")
+    return list(df['input_search_term'])
+
 # Search function using the loaded index and documents
-def search_in_index(index, docs, title, model, k=5):
-    vec = model.encode(title)
+
+def search_in_cat(index, docs, title, model, k):
+    vec = model.encode([title])
     D, I = index.search(vec, k)
     doc_values = [docs[doc_id] for doc_id in I[0]]
     return doc_values
 
-# Define the function to get categories
+def search_in_ams(index, docs, title, model, k):
+    vec = model.encode([title])
+    D, I = index.search(vec, k)
+    doc_values = [docs[doc_id] for doc_id in I[0]]
+    return doc_values
+
+
 def cat(title):
-    index_path = "/content/drive/MyDrive/faiss/category_faiss_index.index"
-    data_path = "/content/drive/MyDrive/faiss/amazon tree for indexing.xlsx"
+    return(search_in_cat(load_cat_index(), load_cat_documents(), title, uae_model(), 1)[0])
 
-    # Load index and documents
-    index = load_index(index_path)
-    docs = load_documents(data_path)
-    vec = uae.encode([title])  # Ensure the title is in a list for encoding
-    D, I = index.search(vec, 5)
-    doc_values = [docs[doc_id] for doc_id in I[0]]
-    return doc_values[0] if doc_values else "No documents found"
+def keys(cat):
+    return(search_in_ams(load_ams_index(), load_ams_documents(), cat, uae_model(), 12))
 
-def keys(category):
-    index_path = "/content/drive/MyDrive/faiss/ams_faiss_index.index"
-    data_path = "/content/drive/MyDrive/faiss/ams keywords.csv"
 
-    # Load index and documents
-    index = load_index(index_path)
-    df = pd.read_csv(data_path)
-    docs=list(df['input_search_term'])
-    vec = uae.encode([category])  # Ensure the title is in a list for encoding
-    D, I = index.search(vec, 20)
-    doc_values = [docs[doc_id] for doc_id in I[0]]
-    return doc_values if doc_values else "No documents found"
-import time
+
 
 def main():
 
@@ -160,8 +175,7 @@ def submit_ner_keywords():
     # Start from the original title and replace phrases one by one
     annotated_title = st.session_state.title
     ner_result=eval(st.session_state.ner_result_dict )
-    #st.write(ner_result)
-        # Sort entities by their start position to handle them in the correct sequence
+
     entities = sorted(ner_result, key=lambda x: title.lower().find(x.lower()))
 
     # Apply HTML tags to each entity found in the title
@@ -175,7 +189,7 @@ def submit_ner_keywords():
 
     # Display the fully annotated title using HTML to allow styling
     st.markdown(annotated_title, unsafe_allow_html=True)
-    #st.write(f"This product is categorized under **{st.session_state.category}**")
+    
     st.write("This product is categorized under <span style='font-weight:bold; color:yellow'>", st.session_state.category, "</span>", unsafe_allow_html=True)
 
 
