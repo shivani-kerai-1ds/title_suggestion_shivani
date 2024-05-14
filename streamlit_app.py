@@ -86,12 +86,12 @@ def load_cat_index():
 
 @st.cache_data
 def load_ams_index():
-    return faiss.read_index("/content/drive/MyDrive/faiss/ams_faiss_index.index")
+    return faiss.read_index("ams_faiss_index.index")
 
 # Load the Excel file containing the documents
 @st.cache_data
 def load_cat_documents():
-    df = pd.read_excel("amazon tree for indexing.xlsx")
+    df = pd.read_csv("amazon tree for indexing.csv")
     return list(df['tree'])
 
 @st.cache_data
