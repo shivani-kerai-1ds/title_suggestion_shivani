@@ -1,252 +1,125 @@
 
 
-
-
-
-
 import streamlit as st
-import faiss
-import numpy as np
-from angle_emb import AnglE
-import pandas as pd
-from tqdm import tqdm
-from boltons.iterutils import chunked
-import pickle
+import time
+import random
 
+def api_1(title):
+    # Simulate a delay for the API call
+    time.sleep(2)  # Simulate a 2-second delay
+    return {"key1": "value1", "key2": "value2", "key3": "value3"}
 
-import requests
+def api_2(title):
+    # Simulate a delay for the API call
+    time.sleep(2)  # Simulate a 2-second delay
+    return "Category_Example"
 
-API_URL_ner = "https://api-inference.huggingface.co/models/shivanikerai/TinyLlama-1.1B-Chat-v1.0-sku-title-ner-generation-reversed-v1.0"
+def api_3(category):
+    # Simulate a delay for the API call
+    time.sleep(2)  # Simulate a 2-second delay
+    return [f"keyword_{i}" for i in range(1, 51)]
 
-headers = {"Authorization": "Bearer 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"}
+def api_4(selected_dict, selected_keywords):
+    # Simulate a delay for the API call
+    time.sleep(2)  # Simulate a 2-second delay
+    return [f"New Title {i}" for i in range(1, 6)]
 
+def api_5(titles):
+    # Simulate a delay for the API call and return a list of scores between 0 and 1
+    time.sleep(2)  # Simulate a 2-second delay
+    return [round(random.uniform(0, 1), 2) for _ in titles]
 
-
-def ner_title(title):
-    # Define the roles and markers
-    B_SYS, E_SYS = "<<SYS>>", "<</SYS>>"
-    B_INST, E_INST = "[INST]", "[/INST]"
-    B_in, E_in = "[Title]", "[/Title]"
-    # Format your prompt template
-    prompt = f"""{B_INST} {B_SYS} You are a helpful assistant that provides accurate and concise responses. {E_SYS}\nExtract named entities from the given product title. Provide the output in JSON format.\n{B_in} {title.strip()} {E_in}\n{E_INST}\n\n### NER Response:\n{{"{title.split()[0].lower()}"""
-    output = query(API_URL_ner,{
-    "inputs": prompt,
-    "parameters": {"return_full_text":False,},
-    "options":{"wait_for_model": True}
-    })
-
-    #return eval(pipe(text)[0]["generated_text"].split("### NER Response:\n")[-1])
-    return ('{"'+title.split()[0].lower()+(output[0]['generated_text']))#.split("### NER Response:\n")[-1]))
-
-
-def query(API_URL,payload):
-    response = requests.post(API_URL, headers=headers, json=payload)
-    return response.json()
-
-def convert_to_dictionary(input_string):
-    try:
-        input_string = input_string.replace('</s>', '')
-        input_string = input_string.replace("\n ","\n")
-        input_string = input_string.replace(" :",":")
-        input_string = input_string.replace("\n"," ")
-        data_dict = {}
-        for item in input_string.split('", "'):
-            key, value = item.split('": "')
-            key = key.strip('{}"')
-            value = value.strip('{}"')
-            data_dict[key] = value
-        inverted_dict = {}
-        for key, value in data_dict.items():
-            if value in inverted_dict:
-                if not isinstance(inverted_dict[value], list):
-                    inverted_dict[value] = [inverted_dict[value]]
-                inverted_dict[value].append(key)
-            else:
-                inverted_dict[value] = [key]
-        return inverted_dict
-    except Exception as e:
-        #print(f"\nAn error occurred: {e}\n{input_string}")
-        return({})
-
-@st.cache_data
-def uae_model():
-    from angle_emb import AnglE
-
-    uae = AnglE.from_pretrained('WhereIsAI/UAE-Large-V1', pooling_strategy='cls')#.cuda()
-    return uae
-
-# pkl_file_path = "save_model.pkl"
-# with open(pkl_file_path, "rb") as f:
-#   uae = pickle.load(f)
-
-# Function to load the FAISS index from disk
-@st.cache_data
-def load_cat_index():
-    return faiss.read_index("category_faiss_index.index")
-
-@st.cache_data
-def load_ams_index():
-    return faiss.read_index("ams_faiss_index.index")
-
-# Load the Excel file containing the documents
-@st.cache_data
-def load_cat_documents():
-    df = pd.read_csv("amazon tree for indexing.csv")
-    return list(df['tree'])
-
-@st.cache_data
-def load_ams_documents():
-    df = pd.read_csv("ams keywords.csv")
-    return list(df['input_search_term'])
-
-# Search function using the loaded index and documents
-
-def search_in_cat(index, docs, title, model, k):
-    vec = model.encode([title])
-    D, I = index.search(vec, k)
-    doc_values = [docs[doc_id] for doc_id in I[0]]
-    return doc_values
-
-def search_in_ams(index, docs, title, model, k):
-    vec = model.encode([title])
-    D, I = index.search(vec, k)
-    doc_values = [docs[doc_id] for doc_id in I[0]]
-    return doc_values
-
-
-def cat(title):
-    return(search_in_cat(load_cat_index(), load_cat_documents(), title, uae_model(), 1)[0])
-
-def keys(cat):
-    return(search_in_ams(load_ams_index(), load_ams_documents(), cat, uae_model(), 12))
-
-
-
+def reset_state():
+    st.session_state.clear()
+    st.session_state.step = 1
 
 def main():
+    st.title("Product Title Generation")
 
+    # Step 1: User inputs the product title
+    if 'step' not in st.session_state:
+        st.session_state.step = 1
 
-    st.title("Amazon Title Suggestion")
-    initialize_state()
+    if st.session_state.step == 1:
+        title = st.text_input("Enter the product title:")
+        if st.button("Submit"):
+            with st.spinner("Calling API 1..."):
+                st.session_state.title = title
+                st.session_state.api_1_response = api_1(title)
+            st.session_state.step = 2
 
-    if not st.session_state.submitted_title:
-        submit_title()
-    elif st.session_state.submitted_title and not st.session_state.submitted_ner_keywords:
-        submit_ner_keywords()
+    # Step 2: Display title and API 1 response
+    if st.session_state.step == 2:
+        st.write(f"Title: {st.session_state.title}")
+        st.write("API 1 Response:", st.session_state.api_1_response)
+        with st.spinner("Calling API 2..."):
+            st.session_state.category = api_2(st.session_state.title)
+        with st.spinner("Calling API 3..."):
+            st.session_state.keywords = api_3(st.session_state.category)
+        st.session_state.step = 3
 
-    if st.button("Reset"):
-        reset_app()
+    # Step 3: Display keywords and dictionary response with checkboxes
+    if st.session_state.step == 3:
+        st.write(f"Category: {st.session_state.category}")
+        
+        st.write("Select from the dictionary response:")
+        selected_dict = {}
+        for key, value in st.session_state.api_1_response.items():
+            if st.checkbox(f"{key}: {value}", key=key):
+                selected_dict[key] = value
 
+        new_key = st.text_input("Add new key:")
+        new_value = st.text_input("Add new value:")
+        if st.button("Add Key-Value Pair"):
+            if new_key and new_value:
+                st.session_state.api_1_response[new_key] = new_value
+                st.experimental_rerun()
 
-def initialize_state():
-    if "title" not in st.session_state:
-        st.session_state.title = ""
-    if "ner_dict" not in st.session_state:
-        st.session_state.ner_dict = {}
-    if "selected_keywords" not in st.session_state:
-        st.session_state.selected_keywords = []
-    if "submitted_title" not in st.session_state:
-        st.session_state.submitted_title = False
-    if "submitted_ner_keywords" not in st.session_state:
-        st.session_state.submitted_ner_keywords = False
-
-def submit_title():
-
-    title = st.text_input("Enter Product Title:", value=st.session_state.title)
-    if st.button("Submit Title"):
-        st.session_state.title = title
-        ner_result = ner_title(title)
-        ner=convert_to_dictionary(ner_result)
-        category=cat(title)
-        st.session_state.category = category
-        st.session_state.ner_dict = ner
-        st.session_state.ner_result_dict = ner_result
-        st.session_state.submitted_title = True
-
-
-
-def submit_ner_keywords():
-    title=st.session_state.title
-    st.write("Product Title:", title)
-
-    # Display the title with NER annotations
-    st.subheader("1DS Artificial Intelligence")
-
-    # Start from the original title and replace phrases one by one
-    annotated_title = st.session_state.title
-    ner_result=eval(st.session_state.ner_result_dict )
-
-    entities = sorted(ner_result, key=lambda x: title.lower().find(x.lower()))
-
-    # Apply HTML tags to each entity found in the title
-    for entity in entities:
-        start_index = title.lower().find(entity.lower())
-        if start_index != -1:  # Only proceed if the entity is found
-            original_text = title[start_index:start_index + len(entity)]
-            # Replace the original text with the annotated version in the title
-            annotated_title = annotated_title.replace(original_text,
-                f"{original_text}<span style='color:green;'>({ner_result[entity]})</span>", 1)
-
-    # Display the fully annotated title using HTML to allow styling
-    st.markdown(annotated_title, unsafe_allow_html=True)
-    
-    st.write("This product is categorized under <span style='font-weight:bold; color:yellow'>", st.session_state.category, "</span>", unsafe_allow_html=True)
-
-
-    st.subheader("Product Features:")
-    selected_features = []
-    for key, value in st.session_state.ner_dict.items():
-        if st.checkbox(f"{key}: {value}"):
-            selected_features.append(value)
-
-    st.subheader("AMS Search Terms:")
-    #st.write(st.session_state.ner_dict['product'])
-
-    #keyword_list=keys(st.session_state.ner_dict['product'][0])
-    keyword_list=keys(st.session_state.category)#keyword_list[:20]#['a','b','c','f','g',"Feature", "Price", "Quality", "Availability"]
-    # for keyword in keyword_list:
-    #     st.checkbox(keyword, key=keyword)
-    col1, col2, col3, col4 = st.columns(4)
-    columns = [col1, col2, col3, col4]
-
-    # Distribute keywords evenly across the four columns
-    for i, keyword in enumerate(keyword_list):
-        with columns[i % 4]:
+        st.write("Select keywords:")
+        selected_keywords = []
+        for keyword in st.session_state.keywords:
             if st.checkbox(keyword, key=keyword):
-                selected_features.append(keyword)
-    if st.button("Suggest Titles"):
-        model2_keywords = [keyword for keyword in keyword_list if st.session_state[keyword]]
-        st.session_state.selected_keywords = model2_keywords
-        st.session_state.submitted_ner_keywords = True
-        st.write("Selected Keywords for Model2:", model2_keywords)
-        st.write("Selected features for Model2:", selected_features)
+                selected_keywords.append(keyword)
 
+        new_keyword = st.text_input("Add new keyword:")
+        if st.button("Add Keyword"):
+            if new_keyword:
+                st.session_state.keywords.append(new_keyword)
+                st.experimental_rerun()
 
+        if st.button("Suggest Titles"):
+            with st.spinner("Calling API 4..."):
+                st.session_state.selected_dict = selected_dict
+                st.session_state.selected_keywords = selected_keywords
+                st.session_state.new_titles = api_4(selected_dict, selected_keywords)
+            st.session_state.step = 4
 
+    # Step 4: Display original and new product titles only after clicking "Suggest Titles"
+    if st.session_state.step == 4:
+        st.write(f"Original Title: {st.session_state.title}")
+        st.write("New Product Titles:")
+        titles = [st.session_state.title] + st.session_state.new_titles
+        for title in titles:
+            st.write(title)
 
-def reset_app():
-    # Clear relevant session states
-    st.session_state.title = ""
-    st.session_state.ner_dict = {}
-    st.session_state.selected_keywords = []
-    st.session_state.submitted_title = False
-    st.session_state.submitted_ner_keywords = False
+        if st.button("Get Scores"):
+            with st.spinner("Calling API 5..."):
+                st.session_state.scores = api_5(titles)
+            st.session_state.step = 5
 
-    # Optionally clear any dynamic states you may have added
-    # such as checkboxes or other inputs
+    # Step 5: Display scores for each title on a new screen
+    if st.session_state.step == 5:
+        st.write("Product Titles with Scores:")
+        titles = [st.session_state.title] + st.session_state.new_titles
+        scores = st.session_state.scores
+        for title, score in zip(titles, scores):
+            st.write(f"{title}: {score}")
+            st.progress(score)
 
-    dynamic_keys = [key for key in st.session_state.keys() if key.startswith('dynamic_')]
-    for key in dynamic_keys:
-        del st.session_state[key]
-
-    # Display the initial title input UI
-    submit_title()
-
-
-
+    # Add Reset button
+    if st.button("Reset"):
+        reset_state()
+        st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
-
-
-
