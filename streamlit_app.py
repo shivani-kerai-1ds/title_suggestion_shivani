@@ -1,5 +1,4 @@
 
-
 import streamlit as st
 import time
 import random
@@ -7,12 +6,12 @@ import random
 def api_1(title):
     # Simulate a delay for the API call
     time.sleep(2)  # Simulate a 2-second delay
-    return {"key1": "value1", "key2": "value2", "key3": "value3"}
+    return ("{\"quaker\": \"brand\",\n\"oats\": \"product\",\n\"multigrain\": \"specification\",\n\"600g\": \"quantity\",\n\"rolled oats\": \"specification\",\n\"wholegrain\": \"specification\",\n\"high protein & fiber\": \"ingredient\",\n\"for weight loss\": \"benefit\",\n\"dalia porridge\": \"application\"}")
 
 def api_2(title):
     # Simulate a delay for the API call
     time.sleep(2)  # Simulate a 2-second delay
-    return "Category_Example"
+    return "Grocery & Gourmet Foods->Cereal & Muesli->Oats & Porridege"
 
 def api_3(category):
     # Simulate a delay for the API call
@@ -28,6 +27,49 @@ def api_5(titles):
     # Simulate a delay for the API call and return a list of scores between 0 and 1
     time.sleep(2)  # Simulate a 2-second delay
     return [round(random.uniform(0, 1), 2) for _ in titles]
+
+
+def title_annotated(title_input,ner_result):
+    annotated_title = title_input
+        
+    # Sort entities by their start position to handle them in the correct sequence
+    entities = sorted(ner_result, key=lambda x: title_input.lower().find(x.lower()))
+    
+    # Apply HTML tags to each entity found in the title
+    for entity in entities:
+        start_index = title_input.lower().find(entity.lower())
+        if start_index != -1:  # Only proceed if the entity is found
+            original_text = title_input[start_index:start_index + len(entity)]
+            # Replace the original text with the annotated version in the title
+            annotated_title = annotated_title.replace(original_text, 
+                f"{original_text}<span style='color:green;'>({ner_result[entity]})</span>", 1)
+    
+    return annotated_title
+
+def convert_to_dictionary(input_string):
+    try:
+        input_string = input_string.replace('</s>', '')
+        input_string = input_string.replace("\n ","\n")
+        input_string = input_string.replace(" :",":")
+        input_string = input_string.replace("\n"," ")
+        data_dict = {}
+        for item in input_string.split('", "'):
+            key, value = item.split('": "')
+            key = key.strip('{}"')
+            value = value.strip('{}"')
+            data_dict[key] = value
+        inverted_dict = {}
+        for key, value in data_dict.items():
+            if value in inverted_dict:
+                if not isinstance(inverted_dict[value], list):
+                    inverted_dict[value] = [inverted_dict[value]]
+                inverted_dict[value].append(key)
+            else:
+                inverted_dict[value] = [key]
+        return inverted_dict
+    except Exception as e:
+        #print(f"\nAn error occurred: {e}\n{input_string}")
+        return({})
 
 def reset_state():
     st.session_state.clear()
@@ -45,13 +87,16 @@ def main():
         if st.button("Submit"):
             with st.spinner("Calling API 1..."):
                 st.session_state.title = title
-                st.session_state.api_1_response = api_1(title)
+                st.session_state.api_1_response = (api_1(title))
             st.session_state.step = 2
 
     # Step 2: Display title and API 1 response
     if st.session_state.step == 2:
         st.write(f"Title: {st.session_state.title}")
-        st.write("API 1 Response:", st.session_state.api_1_response)
+        annotated_title=title_annotated(st.session_state.title,eval(st.session_state.api_1_response))
+        # Display the fully annotated title using HTML to allow styling
+        st.markdown(annotated_title, unsafe_allow_html=True)
+        #st.write("API 1 Response:", st.session_state.api_1_response)
         with st.spinner("Calling API 2..."):
             st.session_state.category = api_2(st.session_state.title)
         with st.spinner("Calling API 3..."):
@@ -60,11 +105,14 @@ def main():
 
     # Step 3: Display keywords and dictionary response with checkboxes
     if st.session_state.step == 3:
-        st.write(f"Category: {st.session_state.category}")
-        
+        #st.write(f"The Product is Categorized under: {st.session_state.category}")
+        st.write("This product is categorized under <span style='font-weight:bold; color:yellow'>", st.session_state.category, "</span>", unsafe_allow_html=True)
+
+
         st.write("Select from the dictionary response:")
         selected_dict = {}
-        for key, value in st.session_state.api_1_response.items():
+        respons=convert_to_dictionary(st.session_state.api_1_response)
+        for key, value in respons.items():
             if st.checkbox(f"{key}: {value}", key=key):
                 selected_dict[key] = value
 
