@@ -125,11 +125,20 @@ def main():
                 #st.session_state.api_1_response1[new_key] = [new_value]
                 st.experimental_rerun()
         
+        col1, col2, col3, col4 = st.columns(4)
+        columns = [col1, col2, col3, col4]
+        
         st.write("Select keywords:")
         selected_keywords = []
-        for keyword in st.session_state.keywords:
-            if st.checkbox(keyword, key=keyword):
-                selected_keywords.append(keyword)
+        for i, keyword in enumerate(st.session_state.keywords):
+            with columns[i % 4]:
+                if st.checkbox(keyword, key=keyword):
+                    selected_keywords.append(keyword)
+
+
+        # for keyword in st.session_state.keywords:
+        #     if st.checkbox(keyword, key=keyword):
+        #         selected_keywords.append(keyword)
 
         new_keyword = st.text_input("Add new keyword:")
         if st.button("Add Keyword"):
@@ -141,7 +150,6 @@ def main():
             with st.spinner("Calling API 4..."):
                 new_selected_dict = {key: value for key, value in selected_dict.items() if len(value) != 0}
                 st.session_state.selected_dict = new_selected_dict
-                #st.session_state.selected_dict = selected_dict
                 st.session_state.selected_keywords = selected_keywords
                 st.session_state.new_titles = api_4(selected_dict, selected_keywords)
             st.session_state.step = 4
