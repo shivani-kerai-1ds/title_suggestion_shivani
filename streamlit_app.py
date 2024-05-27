@@ -1,4 +1,3 @@
-
 import streamlit as st
 import time
 import random
@@ -6,7 +5,7 @@ import random
 def api_1(title):
     # Simulate a delay for the API call
     time.sleep(2)  # Simulate a 2-second delay
-    return ("{\"quaker\": \"brand\",\n\"oats\": \"product\",\n\"multigrain\": \"specification\",\n\"600g\": \"quantity\",\n\"rolled oats\": \"specification\",\n\"wholegrain\": \"specification\",\n\"high protein & fiber\": \"ingredient\",\n\"for weight loss\": \"benefit\",\n\"dalia porridge\": \"application\"}")
+    return eval("{\"quaker\": \"brand\",\n\"oats\": \"product\",\n\"multigrain\": \"specification\",\n\"600g\": \"quantity\",\n\"rolled oats\": \"specification\",\n\"wholegrain\": \"specification\",\n\"high protein & fiber\": \"ingredient\",\n\"for weight loss\": \"benefit\",\n\"dalia porridge\": \"application\"}")
 
 def api_2(title):
     # Simulate a delay for the API call
@@ -16,7 +15,7 @@ def api_2(title):
 def api_3(category):
     # Simulate a delay for the API call
     time.sleep(2)  # Simulate a 2-second delay
-    return [f"keyword_{i}" for i in range(1, 51)]
+    return [f"keyword_{i}" for i in range(1, 11)]
 
 def api_4(selected_dict, selected_keywords):
     # Simulate a delay for the API call
@@ -46,18 +45,9 @@ def title_annotated(title_input,ner_result):
     
     return annotated_title
 
-def convert_to_dictionary(input_string):
+
+def attribute_dict(data_dict):
     try:
-        input_string = input_string.replace('</s>', '')
-        input_string = input_string.replace("\n ","\n")
-        input_string = input_string.replace(" :",":")
-        input_string = input_string.replace("\n"," ")
-        data_dict = {}
-        for item in input_string.split('", "'):
-            key, value = item.split('": "')
-            key = key.strip('{}"')
-            value = value.strip('{}"')
-            data_dict[key] = value
         inverted_dict = {}
         for key, value in data_dict.items():
             if value in inverted_dict:
@@ -70,6 +60,7 @@ def convert_to_dictionary(input_string):
     except Exception as e:
         #print(f"\nAn error occurred: {e}\n{input_string}")
         return({})
+
 
 def reset_state():
     st.session_state.clear()
@@ -85,21 +76,22 @@ def main():
     if st.session_state.step == 1:
         title = st.text_input("Enter the product title:")
         if st.button("Submit"):
-            with st.spinner("Calling API 1..."):
+            with st.spinner("Analysing Title..."):
                 st.session_state.title = title
                 st.session_state.api_1_response = (api_1(title))
+                st.session_state.api_1_response1 = attribute_dict(st.session_state.api_1_response)
             st.session_state.step = 2
 
     # Step 2: Display title and API 1 response
     if st.session_state.step == 2:
         st.write(f"Title: {st.session_state.title}")
-        annotated_title=title_annotated(st.session_state.title,eval(st.session_state.api_1_response))
+        annotated_title=title_annotated(st.session_state.title, (st.session_state.api_1_response))
         # Display the fully annotated title using HTML to allow styling
         st.markdown(annotated_title, unsafe_allow_html=True)
         #st.write("API 1 Response:", st.session_state.api_1_response)
-        with st.spinner("Calling API 2..."):
+        with st.spinner("Checking Product Category..."):
             st.session_state.category = api_2(st.session_state.title)
-        with st.spinner("Calling API 3..."):
+        with st.spinner("Collecting AMS search_terms..."):
             st.session_state.keywords = api_3(st.session_state.category)
         st.session_state.step = 3
 
@@ -109,20 +101,30 @@ def main():
         st.write("This product is categorized under <span style='font-weight:bold; color:yellow'>", st.session_state.category, "</span>", unsafe_allow_html=True)
 
 
-        st.write("Select from the dictionary response:")
+        st.write("Select Product Attributes:")
         selected_dict = {}
-        respons=convert_to_dictionary(st.session_state.api_1_response)
-        for key, value in respons.items():
-            if st.checkbox(f"{key}: {value}", key=key):
-                selected_dict[key] = value
+        
+        for key, value in st.session_state.api_1_response1.items():
+            selected_dict[key] = []
+            for item in value:
+                if st.checkbox(f"{key}: {item}", key=f"{key}-{item}"):
+                  selected_dict[key].append(item)
+
+
+            # if st.checkbox(f"{value}: {key}", key=key):
+            #     selected_dict[key] = value
 
         new_key = st.text_input("Add new key:")
         new_value = st.text_input("Add new value:")
         if st.button("Add Key-Value Pair"):
             if new_key and new_value:
-                st.session_state.api_1_response[new_key] = new_value
+                if new_key in st.session_state.api_1_response1 and isinstance(st.session_state.api_1_response1[key], list):
+                    st.session_state.api_1_response1[new_key].append(new_value)
+                else:
+                    st.session_state.api_1_response1[new_key] = [new_value]
+                #st.session_state.api_1_response1[new_key] = [new_value]
                 st.experimental_rerun()
-
+        
         st.write("Select keywords:")
         selected_keywords = []
         for keyword in st.session_state.keywords:
@@ -134,7 +136,7 @@ def main():
             if new_keyword:
                 st.session_state.keywords.append(new_keyword)
                 st.experimental_rerun()
-
+        
         if st.button("Suggest Titles"):
             with st.spinner("Calling API 4..."):
                 st.session_state.selected_dict = selected_dict
@@ -144,6 +146,8 @@ def main():
 
     # Step 4: Display original and new product titles only after clicking "Suggest Titles"
     if st.session_state.step == 4:
+        st.write(st.session_state.selected_dict)
+        st.write(st.session_state.selected_keywords)
         st.write(f"Original Title: {st.session_state.title}")
         st.write("New Product Titles:")
         titles = [st.session_state.title] + st.session_state.new_titles
