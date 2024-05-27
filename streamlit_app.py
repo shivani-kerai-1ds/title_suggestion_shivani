@@ -5,7 +5,29 @@ import random
 def api_1(title):
     # Simulate a delay for the API call
     time.sleep(2)  # Simulate a 2-second delay
-    return eval("{\"quaker\": \"brand\",\n\"oats\": \"product\",\n\"multigrain\": \"specification\",\n\"600g\": \"quantity\",\n\"rolled oats\": \"specification\",\n\"wholegrain\": \"specification\",\n\"high protein & fiber\": \"ingredient\",\n\"for weight loss\": \"benefit\",\n\"dalia porridge\": \"application\"}")
+
+    B_SYS, E_SYS = "<<SYS>>", "<</SYS>>"
+    B_INST, E_INST = "[INST]", "[/INST]"
+    B_in, E_in = "[Title]", "[/Title]"
+    prompt = f"""{B_INST} {B_SYS} You are a helpful assistant that provides accurate and concise responses. {E_SYS}
+    \nExtract named entities from the given product title. Provide the output in JSON format.
+    \n{B_in} {title.strip()} {E_in}\n{E_INST}
+    \n### NER Response:\n{{"{title.split()[0].lower()}"""
+    
+    API_URL_ner = "https://api-inference.huggingface.co/models/shivanikerai/TinyLlama-1.1B-Chat-v1.0-sku-title-ner-generation-reversed-v1.0"
+    
+    headers = {"Authorization": "Bearer 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"}
+    payload={
+    "inputs": prompt,
+    "parameters": {"return_full_text":False,},
+    "options":{"wait_for_model": True}
+    }
+    response = requests.post(API_URL_ner, headers=headers, json=payload)
+    generated_text = response.json()[0]["generated_text"]
+    output = f"""{{\"{input.title.split()[0].lower()} {generated_text}"""
+    output = re.sub(' ": "', '": "', output)
+    return output
+    # return eval("{\"quaker\": \"brand\",\n\"oats\": \"product\",\n\"multigrain\": \"specification\",\n\"600g\": \"quantity\",\n\"rolled oats\": \"specification\",\n\"wholegrain\": \"specification\",\n\"high protein & fiber\": \"ingredient\",\n\"for weight loss\": \"benefit\",\n\"dalia porridge\": \"application\"}")
 
 def api_2(title):
     # Simulate a delay for the API call
