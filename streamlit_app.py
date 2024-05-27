@@ -139,7 +139,9 @@ def main():
         
         if st.button("Suggest Titles"):
             with st.spinner("Calling API 4..."):
-                st.session_state.selected_dict = selected_dict
+                new_selected_dict = {key: value for key, value in selected_dict.items() if len(value) != 0}
+                st.session_state.selected_dict = new_selected_dict
+                #st.session_state.selected_dict = selected_dict
                 st.session_state.selected_keywords = selected_keywords
                 st.session_state.new_titles = api_4(selected_dict, selected_keywords)
             st.session_state.step = 4
